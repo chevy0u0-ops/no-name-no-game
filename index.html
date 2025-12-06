@@ -1,115 +1,133 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-<meta charset="UTF-8" />
-<title>うさワニフルーツキャッチ</title>
+<meta charset="UTF-8">
+<title>ワニのフルーツキャッチ</title>
+
 <style>
     body {
         margin: 0;
         background: #000;
-        overflow: hidden;
+        color: #fff;
         font-family: sans-serif;
-        color: white;
+        overflow: hidden;
+        text-align: center;
     }
 
+    #game {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+    }
+
+    /* ▼▼ ワニ（プレイヤー） ▼▼ */
     #player {
         position: absolute;
         bottom: 20px;
         left: 50%;
         transform: translateX(-50%);
-        width: 80px;
-        height: 80px;
-        background: #77ff88; /* ワニっぽい色 */
+        width: 90px;
+        height: 90px;
+        background: #6bd66b;
         border-radius: 20px;
         text-align: center;
-        line-height: 80px;
-        font-size: 20px;
+        line-height: 90px;
+        font-size: 48px;
     }
 
-    .fruit {
+    /* ▼▼ 落ちてくるアイテム ▼▼ */
+    .item {
         position: absolute;
         width: 40px;
         height: 40px;
-        background: #ffdd55;
-        border-radius: 50%;
+        font-size: 32px;
+        text-align: center;
     }
 
-    .bomb {
-        position: absolute;
-        width: 40px;
-        height: 40px;
-        background: red;
-        border-radius: 50%;
-    }
-
+    /* スコアとタイマー */
     #score, #timer {
-        position: absolute;
-        top: 10px;
-        left: 10px;
         font-size: 24px;
-    }
-    #timer {
-        left: auto;
-        right: 10px;
+        margin-top: 5px;
     }
 </style>
 </head>
 
 <body>
 
-<div id="player">🐊</div>
 <div id="score">スコア：0</div>
 <div id="timer">残り：30秒</div>
 
+<div id="game">
+    <div id="player">🐊</div>
+</div>
+
 <script>
+    const game = document.getElementById("game");
     const player = document.getElementById("player");
+
     let score = 0;
     let time = 30;
 
-    // プレイヤー操作（指/マウスで移動）
-    document.addEventListener("mousemove", (e) => {
-        player.style.left = e.clientX - 40 + "px";
-    });
-    document.addEventListener("touchmove", (e) => {
-        let x = e.touches[0].clientX;
-        player.style.left = x - 40 + "px";
+    function updateScore() {
+        document.getElementById("score").innerText = "スコア：" + score;
+    }
+
+    function updateTimer() {
+        document.getElementById("timer").innerText = "残り：" + time + "秒";
+    }
+
+    /* ▼▼ プレイヤーを指で左右に動かす ▼▼ */
+    game.addEventListener("touchmove", (e) => {
+        const x = e.touches[0].clientX;
+        player.style.left = x - 45 + "px";
     });
 
-    // 落ち物生成
-    function spawnItem() {
-        const isBomb = Math.random() < 0.2; // 20% が爆弾
+    /* ▼▼ 落下物をランダム生成 ▼▼ */
+    function dropItem() {
         const item = document.createElement("div");
+        item.className = "item";
 
-        item.className = isBomb ? "bomb" : "fruit";
+        // 70%：フルーツ、30%：爆弾
+        const rand = Math.random();
+        if (rand < 0.7) {
+            item.innerText = "🍎"; // フルーツ
+            item.dataset.type = "fruit";
+        } else {
+            item.innerText = "💣"; // 爆弾
+            item.dataset.type = "bomb";
+        }
+
         item.style.left = Math.random() * window.innerWidth + "px";
-        item.style.top = "0px";
-        document.body.appendChild(item);
+        item.style.top = "-40px";
 
-        let fall = setInterval(() => {
+        game.appendChild(item);
+
+        const fall = setInterval(() => {
             const t = parseInt(item.style.top);
             item.style.top = t + 5 + "px";
 
-            let iRect = item.getBoundingClientRect();
-            let pRect = player.getBoundingClientRect();
+            const px = player.getBoundingClientRect();
+            const ix = item.getBoundingClientRect();
 
             // 当たり判定
             if (
-                iRect.bottom >= pRect.top &&
-                iRect.left < pRect.right &&
-                iRect.right > pRect.left
+                ix.bottom >= px.top &&
+                ix.left < px.right &&
+                ix.right > px.left
             ) {
                 clearInterval(fall);
-                item.remove();
-
-                if (isBomb) {
-                    alert("爆弾に当たった！ゲームオーバー\nスコア：" + score);
-                    location.reload();
-                } else {
+                
+                if (item.dataset.type === "fruit") {
                     score++;
-                    document.getElementById("score").innerText = "スコア：" + score;
+                    updateScore();
+                } else {
+                    alert("爆弾に当たった！\nスコア：" + score);
+                    location.reload();
                 }
+                item.remove();
             }
 
+            // 画面外に消えたら削除
             if (t > window.innerHeight) {
                 clearInterval(fall);
                 item.remove();
@@ -117,18 +135,21 @@
         }, 20);
     }
 
-    // 定期的に落とす
-    setInterval(spawnItem, 600);
+    /* ▼▼ 定期的に落とす ▼▼ */
+    setInterval(dropItem, 700);
 
-    // タイマー
-    setInterval(() => {
+    /* ▼▼ 30秒タイマー ▼▼ */
+    const timer = setInterval(() => {
         time--;
-        document.getElementById("timer").innerText = "残り：" + time + "秒";
+        updateTimer();
+
         if (time <= 0) {
-            alert("終了！スコア：" + score);
+            clearInterval(timer);
+            alert("終了！\nスコア：" + score);
             location.reload();
         }
     }, 1000);
+
 </script>
 
 </body>
