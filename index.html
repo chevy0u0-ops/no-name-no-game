@@ -2,74 +2,133 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<title>ワニのフルーツキャッチ</title>
-
+<title>うさワニフルーツキャッチ</title>
 <style>
-    body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; color: #fff; text-align: center; }
-    #score, #timer { font-size: 24px; margin: 10px; }
-    #game { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
-    #player { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 80px; height: 50px; background: #3cb371; border-radius: 40px; border: 3px solid #2e8b57; }
-    .eye { position: absolute; top: 8px; width: 14px; height: 14px; background: white; border-radius: 50%; }
-    .eye.left { left: 18px; } .eye.right { right: 18px; }
-    .fruit { position: absolute; width: 30px; height: 30px; border-radius: 50%; }
-    .bomb { position: absolute; width: 30px; height: 30px; background: #222; border-radius: 50%; border: 3px solid #555; }
+    body {
+        margin: 0;
+        background: #000;
+        overflow: hidden;
+        font-family: sans-serif;
+        color: white;
+    }
+
+    #player {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80px;
+        height: 80px;
+        background: #77ff88; /* ワニっぽい色 */
+        border-radius: 20px;
+        text-align: center;
+        line-height: 80px;
+        font-size: 20px;
+    }
+
+    .fruit {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        background: #ffdd55;
+        border-radius: 50%;
+    }
+
+    .bomb {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        background: red;
+        border-radius: 50%;
+    }
+
+    #score, #timer {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font-size: 24px;
+    }
+    #timer {
+        left: auto;
+        right: 10px;
+    }
 </style>
 </head>
 
 <body>
 
+<div id="player">🐊</div>
 <div id="score">スコア：0</div>
 <div id="timer">残り：30秒</div>
-<div id="game"></div>
 
 <script>
-const game = document.getElementById("game");
-// プレイヤー作成
-const player = document.createElement("div");
-player.id = "player";
-const eyeL = document.createElement("div"); eyeL.className = "eye left";
-const eyeR = document.createElement("div"); eyeR.className = "eye right";
-player.appendChild(eyeL); player.appendChild(eyeR);
-game.appendChild(player);
+    const player = document.getElementById("player");
+    let score = 0;
+    let time = 30;
 
-let score = 0; let time = 30;
-function updateScore(){ document.getElementById("score").innerText = "スコア：" + score; }
-function updateTimer(){ document.getElementById("timer").innerText = "残り：" + time + "秒"; }
+    // プレイヤー操作（指/マウスで移動）
+    document.addEventListener("mousemove", (e) => {
+        player.style.left = e.clientX - 40 + "px";
+    });
+    document.addEventListener("touchmove", (e) => {
+        let x = e.touches[0].clientX;
+        player.style.left = x - 40 + "px";
+    });
 
-function fallObject(obj, type){
-  const fall = setInterval(() => {
-    let t = parseInt(obj.style.top);
-    obj.style.top = t + 5 + "px";
-    const px = player.getBoundingClientRect();
-    const ox = obj.getBoundingClientRect();
-    if (ox.bottom >= px.top && ox.left < px.right && ox.right > px.left){
-      clearInterval(fall);
-      if (type === "fruit"){ score++; updateScore(); } else { alert("💥 ゲームオーバー！ スコア：" + score); location.reload(); }
-      obj.remove();
+    // 落ち物生成
+    function spawnItem() {
+        const isBomb = Math.random() < 0.2; // 20% が爆弾
+        const item = document.createElement("div");
+
+        item.className = isBomb ? "bomb" : "fruit";
+        item.style.left = Math.random() * window.innerWidth + "px";
+        item.style.top = "0px";
+        document.body.appendChild(item);
+
+        let fall = setInterval(() => {
+            const t = parseInt(item.style.top);
+            item.style.top = t + 5 + "px";
+
+            let iRect = item.getBoundingClientRect();
+            let pRect = player.getBoundingClientRect();
+
+            // 当たり判定
+            if (
+                iRect.bottom >= pRect.top &&
+                iRect.left < pRect.right &&
+                iRect.right > pRect.left
+            ) {
+                clearInterval(fall);
+                item.remove();
+
+                if (isBomb) {
+                    alert("爆弾に当たった！ゲームオーバー\nスコア：" + score);
+                    location.reload();
+                } else {
+                    score++;
+                    document.getElementById("score").innerText = "スコア：" + score;
+                }
+            }
+
+            if (t > window.innerHeight) {
+                clearInterval(fall);
+                item.remove();
+            }
+        }, 20);
     }
-    if (t > window.innerHeight){ clearInterval(fall); obj.remove(); }
-  }, 20);
-}
 
-function createFruit(){
-  const f = document.createElement("div"); f.className = "fruit";
-  const colors = ["#ff4757","#ffa502","#2ed573","#1e90ff","#ff6b81"];
-  f.style.background = colors[Math.floor(Math.random()*colors.length)];
-  f.style.left = Math.random()*(window.innerWidth-30)+"px"; f.style.top = "0px";
-  game.appendChild(f); fallObject(f,"fruit");
-}
-function createBomb(){
-  const b = document.createElement("div"); b.className = "bomb";
-  b.style.left = Math.random()*(window.innerWidth-30)+"px"; b.style.top = "0px";
-  game.appendChild(b); fallObject(b,"bomb");
-}
+    // 定期的に落とす
+    setInterval(spawnItem, 600);
 
-setInterval(()=>{ if (Math.random()<0.8) createFruit(); else createBomb(); },700);
-
-game.addEventListener("touchmove", e => { const x = e.touches[0].clientX; player.style.left = (x-40)+"px"; });
-game.addEventListener("mousemove", e => { player.style.left = (e.clientX-40)+"px"; });
-
-const timer = setInterval(()=>{ time--; updateTimer(); if (time<=0){ clearInterval(timer); alert("終了！ スコア："+score); location.reload(); } },1000);
+    // タイマー
+    setInterval(() => {
+        time--;
+        document.getElementById("timer").innerText = "残り：" + time + "秒";
+        if (time <= 0) {
+            alert("終了！スコア：" + score);
+            location.reload();
+        }
+    }, 1000);
 </script>
 
 </body>
