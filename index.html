@@ -1,42 +1,72 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>宇宙ドングリドロップ</title>
+<meta charset="UTF-8" />
+<title>ワニのフルーツキャッチ</title>
+
 <style>
     body {
         margin: 0;
         background: #000;
-        color: #fff;
-        font-family: sans-serif;
-        text-align: center;
         overflow: hidden;
+        font-family: sans-serif;
+        color: #fff;
+        text-align: center;
     }
+
+    #score, #timer {
+        font-size: 24px;
+        margin: 10px;
+    }
+
     #game {
         position: relative;
         width: 100vw;
         height: 100vh;
+        overflow: hidden;
     }
+
+    /* ワニキャラ */
     #player {
         position: absolute;
-        bottom: 20px;
+        bottom: 30px;
         left: 50%;
         transform: translateX(-50%);
         width: 80px;
-        height: 60px;
-        background: pink;
+        height: 50px;
+        background: #3cb371; /* 緑かわいい色 */
         border-radius: 40px;
+        border: 3px solid #2e8b57;
     }
-    .drop {
+
+    /* 目（ワニ風に） */
+    .eye {
         position: absolute;
-        width: 20px;
-        height: 20px;
-        background: yellow;
+        top: 8px;
+        width: 14px;
+        height: 14px;
+        background: white;
         border-radius: 50%;
     }
-    #score, #timer {
-        font-size: 24px;
-        margin-top: 10px;
+    .eye.left { left: 18px; }
+    .eye.right { right: 18px; }
+
+    /* フルーツ */
+    .fruit {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+    }
+
+    /* 爆弾 */
+    .bomb {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        background: #222;
+        border-radius: 50%;
+        border: 3px solid #555;
     }
 </style>
 </head>
@@ -45,62 +75,126 @@
 
 <div id="score">スコア：0</div>
 <div id="timer">残り：30秒</div>
-
 <div id="game"></div>
 
 <script>
 const game = document.getElementById("game");
+
+// --- プレイヤー（ワニ） ---
 const player = document.createElement("div");
 player.id = "player";
+
+// 目を追加
+const eyeL = document.createElement("div");
+eyeL.className = "eye left";
+const eyeR = document.createElement("div");
+eyeR.className = "eye right";
+player.appendChild(eyeL);
+player.appendChild(eyeR);
+
 game.appendChild(player);
 
 let score = 0;
 let time = 30;
 
+// スコア更新
 function updateScore() {
     document.getElementById("score").innerText = "スコア：" + score;
 }
-
+// タイマー更新
 function updateTimer() {
     document.getElementById("timer").innerText = "残り：" + time + "秒";
 }
 
-function drop() {
-    const d = document.createElement("div");
-    d.className = "drop";
-    d.style.left = Math.random() * window.innerWidth + "px";
-    d.style.top = "0px";
-    game.appendChild(d);
+// フルーツ作成
+function createFruit() {
+    const f = document.createElement("div");
+    f.className = "fruit";
 
+    // ランダムに種類と色
+    const colors = ["#ff4757", "#ffa502", "#2ed573", "#1e90ff", "#ff6b81"];
+    f.style.background = colors[Math.floor(Math.random() * colors.length)];
+
+    f.style.left = Math.random() * (window.innerWidth - 30) + "px";
+    f.style.top = "0px";
+
+    game.appendChild(f);
+
+    fallObject(f, "fruit");
+}
+
+// 爆弾作成
+function createBomb() {
+    const b = document.createElement("div");
+    b.className = "bomb";
+    b.style.left = Math.random() * (window.innerWidth - 30) + "px";
+    b.style.top = "0px";
+
+    game.appendChild(b);
+
+    fallObject(b, "bomb");
+}
+
+// 落下処理
+function fallObject(obj, type) {
     const fall = setInterval(() => {
-        const t = parseInt(d.style.top);
-        d.style.top = t + 5 + "px";
+        let t = parseInt(obj.style.top);
+        obj.style.top = t + 5 + "px";
 
+        // 当たり判定
         const px = player.getBoundingClientRect();
-        const dx = d.getBoundingClientRect();
+        const ox = obj.getBoundingClientRect();
 
-        if (dx.bottom >= px.top && dx.left < px.right && dx.right > px.left) {
-            score++;
-            updateScore();
+        if (
+            ox.bottom >= px.top &&
+            ox.left < px.right &&
+            ox.right > px.left
+        ) {
             clearInterval(fall);
-            d.remove();
+
+            if (type === "fruit") {
+                score++;
+                updateScore();
+            } else {
+                alert("💥 ゲームオーバー！ スコア：" + score);
+                location.reload();
+            }
+            obj.remove();
         }
 
+        // 画面外に出たら削除
         if (t > window.innerHeight) {
             clearInterval(fall);
-            d.remove();
+            obj.remove();
         }
     }, 20);
 }
 
-game.addEventListener("click", drop);
+// ランダムに落下
+setInterval(() => {
+    if (Math.random() < 0.8) createFruit();
+    else createBomb();
+}, 700);
 
+// プレイヤー移動（スマホタップ）
+game.addEventListener("touchmove", e => {
+    const x = e.touches[0].clientX;
+    player.style.left = (x - 40) + "px";
+});
+
+// PC用マウス移動
+game.addEventListener("mousemove", e => {
+    player.style.left = (e.clientX - 40) + "px";
+});
+
+// 30秒タイマー
 const timer = setInterval(() => {
     time--;
     updateTimer();
     if (time <= 0) {
         clearInterval(timer);
         alert("終了！ スコア：" + score);
+        location.reload();
     }
 }, 1000);
 </script>
