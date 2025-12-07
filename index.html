@@ -2,172 +2,143 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>ワニキャッチゲーム</title>
-
+<title>Fruit Catch Game</title>
 <style>
-body {
-    margin: 0;
-    background: #000;
-    overflow: hidden;
-    touch-action: none;
-    color: #fff;
-    font-family: sans-serif;
-}
-
-/* ワニ（画像） */
-#player {
-    position: absolute;
-    bottom: 5vh;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 160px;
-    transition: 0.05s;
-}
-
-/* 落下物（大きめ） */
-.item {
-    position: absolute;
-    top: -160px;
-    width: 140px;
-    height: 140px;
-    font-size: 110px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-/* UI */
-#score, #timer {
-    position: absolute;
-    left: 10px;
-    font-size: 30px;
-}
-#timer { top: 40px; }
-
-#restartBtn {
-    position: absolute;
-    top: 40%;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 20px 40px;
-    background: #fff;
-    border-radius: 10px;
-    color: #000;
-    font-size: 30px;
-    display: none;
-}
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: #f9f5e8;
+        font-family: sans-serif;
+    }
+    #gameCanvas {
+        background: #e8e1d0;
+        display: block;
+        margin: 0 auto;
+    }
 </style>
 </head>
-
 <body>
 
-<img id="player" src="wani_normal.png">
-
-<div id="score">Score: 0</div>
-<div id="timer">Time: 30</div>
-
-<div id="restartBtn">もう一回！</div>
+<canvas id="gameCanvas" width="400" height="600"></canvas>
 
 <script>
+// ----- Canvas Setup -----
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// ----- Basket -----
+const basket = {
+    x: canvas.width / 2 - 40,
+    y: canvas.height - 80,
+    width: 80,
+    height: 45,
+    speed: 6
+};
+
+// ----- Fruits & Bomb -----
+const fruitTypes = ["🍎", "🍌", "🍇", "🍒"];
+let objects = [];
 let score = 0;
-let time = 30;
-let running = true;
-let playerX = window.innerWidth / 2;
-const fruits = ["🍎","🍌","🍇","🍑","🍓"];
+let lastFruit = null; // 連続ボーナス用
 
-const player = document.getElementById("player");
+// ----- Spawn Objects -----
+function spawnObject() {
+    const isBomb = Math.random() < 0.25; // 爆弾は少し多く
+    const size = 35; // 3分の2サイズ（調整済）
 
-/* 操作（スマホ&PC） */
-document.addEventListener("touchstart", e => playerX = e.touches[0].clientX);
-document.addEventListener("touchmove",  e => playerX = e.touches[0].clientX);
-document.addEventListener("mousemove",  e => playerX = e.clientX);
-
-/* プレイヤー移動 */
-setInterval(()=>{
-    player.style.left = (playerX - player.width/2) + "px";
-}, 16);
-
-/* 落下物生成 */
-function spawnItem(){
-    if (!running) return;
-
-    const item = document.createElement("div");
-    item.className = "item";
-
-    const isBomb = Math.random() < 0.25;
-    item.textContent = isBomb ? "💣" : fruits[Math.floor(Math.random()*fruits.length)];
-
-    item.style.left = Math.random() * (window.innerWidth - 140) + "px";
-    document.body.appendChild(item);
-
-    let y = -160;
-
-    const fall = setInterval(()=>{
-        if (!running){
-            clearInterval(fall);
-            item.remove();
-            return;
-        }
-
-        y += 7;
-        item.style.top = y + "px";
-
-        const p = player.getBoundingClientRect();
-        const b = item.getBoundingClientRect();
-
-        // 当たり判定
-        if (
-            b.bottom > p.top &&
-            b.top < p.bottom &&
-            b.right > p.left &&
-            b.left < p.right
-        ){
-            clearInterval(fall);
-            item.remove();
-
-            // 口開く → 200ms で閉じる
-            player.src = "wani_open.png";
-            setTimeout(()=> player.src = "wani_normal.png", 200);
-
-            // スコア計算
-            if (isBomb) score--;
-            else score++;
-
-            document.getElementById("score").textContent = "Score: " + score;
-        }
-
-        // 画面外で削除
-        if (y > window.innerHeight){
-            clearInterval(fall);
-            item.remove();
-        }
-    }, 16);
+    objects.push({
+        x: Math.random() * (canvas.width - size),
+        y: -50,
+        size: size,
+        speed: 2 + Math.random() * 2,
+        type: isBomb ? "💣" : fruitTypes[Math.floor(Math.random() * fruitTypes.length)]
+    });
 }
 
-/* 一定間隔で落下 */
-let spawnInterval = setInterval(spawnItem, 650);
+setInterval(spawnObject, 700);
 
-/* タイマー */
-let timerInterval = setInterval(()=>{
-    if (!running) return;
+// ----- Draw Basket -----
+function drawBasket() {
+    ctx.fillStyle = "#8b5a2b"; // 木製風
+    ctx.fillRect(basket.x, basket.y, basket.width, basket.height);
+}
 
-    time--;
-    document.getElementById("timer").textContent = "Time: " + time;
+// ----- Draw Objects -----
+function drawObjects() {
+    ctx.font = "30px serif";
+    objects.forEach(obj => {
+        ctx.fillText(obj.type, obj.x, obj.y);
+    });
+}
 
-    if (time <= 0){
-        running = false;
-        clearInterval(spawnInterval);
-        clearInterval(timerInterval);
-        document.getElementById("restartBtn").style.display = "block";
+// ----- Update Objects -----
+function updateObjects() {
+    for (let i = 0; i < objects.length; i++) {
+        let obj = objects[i];
+        obj.y += obj.speed;
+
+        // カゴとの当たり判定
+        if (
+            obj.y + obj.size > basket.y &&
+            obj.x < basket.x + basket.width &&
+            obj.x + obj.size > basket.x
+        ) {
+            if (obj.type === "💣") {
+                alert("💥 爆弾に当たった！ゲームオーバー\nスコア: " + score);
+                location.reload();
+                return;
+            }
+
+            // フルーツ獲得
+            score += 5;
+
+            // ボーナス：同じフルーツ連続
+            if (obj.type === lastFruit) {
+                score += 10; // ボーナス
+            }
+            lastFruit = obj.type;
+
+            objects.splice(i, 1);
+            i--;
+        }
+
+        // 画面外処理
+        if (obj.y > canvas.height) {
+            objects.splice(i, 1);
+            i--;
+        }
     }
-}, 1000);
+}
 
-/* リスタート */
-document.getElementById("restartBtn").onclick = () => {
-    location.reload();
-};
+// ----- Draw Score -----
+function drawScore() {
+    ctx.fillStyle = "#000";
+    ctx.font = "20px sans-serif";
+    ctx.fillText("Score: " + score, 10, 30);
+}
+
+// ----- Game Loop -----
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    drawBasket();
+    drawObjects();
+    updateObjects();
+    drawScore();
+
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+
+// ----- Controls -----
+document.addEventListener("keydown", e => {
+    if (e.key === "ArrowLeft") basket.x -= basket.speed;
+    if (e.key === "ArrowRight") basket.x += basket.speed;
+
+    // 画面外に出ないように
+    basket.x = Math.max(0, Math.min(canvas.width - basket.width, basket.x));
+});
 </script>
 
 </body>
