@@ -2,127 +2,106 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Catch Game Fixed</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>ワニキャッチゲーム</title>
 
 <style>
-    body {
-        margin: 0;
-        overflow: hidden;
-        background: #f2faff;
-        font-family: sans-serif;
-        touch-action: none;
-    }
+body {
+    margin: 0;
+    background: #000;
+    overflow: hidden;
+    touch-action: none;
+    color: #fff;
+    font-family: sans-serif;
+}
 
-    /* ワニ（かわいい画像） */
-    #player {
-        position: absolute;
-        bottom: 10vh;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 90px;
-        height: 90px;
-        background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAAAAACPAi4CAAABRUlEQVR4Xu2WwY3DIAyF/3+f2LABLoEkpB6jwxKF1u9IiMaivGi99ZTSdKCbFf8gDuwZQzQ0jrISFRCGDpa2BkLomqKgkl0vvArkH5AO9M/dwZ0pniS3pSkeYg2rtI8BGG99nmCaTKty+O+kO5OVwOB1p5MNDoAuCEi0aKBslZx2drXr/7EQAD1gChX2NDSSSXqoQZnIcDplLWYwgd0CQOZgd0s8AjtKoa6HgMHqmpYyqn1nVbWcv16O3MHuvb6jVWeItPxX2VINeodIZ6h0hPqI6BjqISOlHqHSHRoCjql0hkaA46iEh1R6h0hk6BR6g0QcdpShUMpOWcZH/AsLiCFYI8aAizI0s4momkGLumZ5qAz6Ch12yvDregOiiMHDL/95B2S/bRMyCV2wAPOQgCXnADl5wA8pB0lPwQBGj62LF8A3BnQUwpsOSoAAAAASUVORK5CYII=');
-        background-size: contain;
-        background-repeat: no-repeat;
-    }
+/* ワニ：img なので絶対表示される */
+#player {
+    position: absolute;
+    bottom: 5vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 140px;
+}
 
-    .item {
-        position: absolute;
-        top: -60px;
-        width: 70px;
-        height: 70px;
-        font-size: 40px;
-        border-radius: 15px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
+/* 落下物サイズ大きめ */
+.item {
+    position: absolute;
+    top: -150px;
+    width: 120px;
+    height: 120px;
+    font-size: 90px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
 
-    #score, #timer {
-        position: absolute;
-        left: 10px;
-        font-size: 24px;
-        color: #333;
-    }
-    #timer { top: 40px; }
-
-    #gameover {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 48px;
-        color: #ff4444;
-        display: none;
-    }
-
-    #restart {
-        position: absolute;
-        top: 65%;
-        left: 50%;
-        transform: translateX(-50%);
-        padding: 15px 30px;
-        background: #48aaff;
-        color: white;
-        border-radius: 10px;
-        font-size: 24px;
-        display: none;
-    }
+/* UI */
+#score, #timer {
+    position: absolute;
+    left: 10px;
+    font-size: 28px;
+}
+#timer { top: 40px; }
 </style>
 </head>
 
 <body>
 
-<div id="player"></div>
+<!-- ★ 画像のワニ（絶対表示される） -->
+<img id="player" src="https://i.imgur.com/F0bqC7A.png">
+
 <div id="score">Score: 0</div>
 <div id="timer">Time: 30</div>
-<div id="gameover">GAME OVER</div>
-<div id="restart">Restart</div>
 
 <script>
 let score = 0;
-let timeLeft = 30;
-let falling = true;
-let moveX = window.innerWidth / 2;
+let time = 30;
+let running = true;
+let intervals = [];
 
-/* ワニ移動（スマホ対応） */
-document.addEventListener("touchmove", (e)=>{
-    moveX = e.touches[0].clientX;
-});
-document.addEventListener("mousemove", (e)=>{
-    moveX = e.clientX;
-});
+const player = document.getElementById("player");
+let playerX = window.innerWidth / 2;
 
-/* 毎フレーム移動 */
-setInterval(()=>{
-    document.getElementById("player").style.left = moveX + "px";
-},16);
+/* スマホ・PC 両対応 移動 */
+document.addEventListener("touchstart", e => playerX = e.touches[0].clientX);
+document.addEventListener("touchmove",  e => playerX = e.touches[0].clientX);
+document.addEventListener("mousemove",  e => playerX = e.clientX);
 
-const fruits = ["🍎","🍌","🍇","🍑"];
-function spawnItem(){
-    if (!falling) return;
+/* プレイヤー動かす */
+intervals.push(setInterval(()=>{
+    player.style.left = (playerX - 70) + "px";
+}, 16));
+
+const fruits = ["🍎","🍌","🍇","🍑","🍓"];
+
+/* 落下物生成 */
+function spawn(){
+    if (!running) return;
 
     const item = document.createElement("div");
-    item.classList.add("item");
+    item.className = "item";
 
-    const isBomb = Math.random() < 0.2;
+    const isBomb = Math.random() < 0.25;
     item.textContent = isBomb ? "💣" : fruits[Math.floor(Math.random()*fruits.length)];
-    item.style.left = Math.random()*(window.innerWidth-70)+"px";
 
+    item.style.left = Math.random() * (window.innerWidth - 120) + "px";
     document.body.appendChild(item);
 
-    let y = -60;
+    let y = -150;
+
     const fall = setInterval(()=>{
-        if (!falling){
+        if (!running){
             clearInterval(fall);
             item.remove();
             return;
         }
 
-        y += 5;
-        item.style.top = y+"px";
+        y += 6;
+        item.style.top = y + "px";
 
+        // 当たり判定
         const p = player.getBoundingClientRect();
         const b = item.getBoundingClientRect();
 
@@ -135,45 +114,36 @@ function spawnItem(){
             clearInterval(fall);
             item.remove();
 
-            if (isBomb){
-                gameOver();
-            } else {
-                score++;
-                scoreBox.textContent = "Score: " + score;
-            }
+            // ★ここを必ずマイナスのみ
+            if (isBomb) score--;
+            else score++;
+
+            document.getElementById("score").textContent = "Score: " + score;
         }
 
         if (y > window.innerHeight){
             clearInterval(fall);
             item.remove();
         }
-    },16);
+    }, 16);
+
+    intervals.push(fall);
 }
 
-const scoreBox = document.getElementById("score");
-const timerBox = document.getElementById("timer");
+/* 0.7秒おきに落下 */
+intervals.push(setInterval(spawn, 700));
 
-setInterval(()=>{
-    if (falling && timeLeft > 0){
-        timeLeft--;
-        timerBox.textContent = "Time: "+timeLeft;
-        if (timeLeft === 0) gameOver();
+/* タイマー */
+intervals.push(setInterval(()=>{
+    if (!running) return;
+    time--;
+    document.getElementById("timer").textContent = "Time: " + time;
+
+    if (time <= 0){
+        running = false;
+        intervals.forEach(i => clearInterval(i)); // 全停止
     }
-},1000);
-
-setInterval(spawnItem, 800);
-
-/* ゲームオーバー処理 */
-function gameOver(){
-    falling = false;
-    document.getElementById("gameover").style.display = "block";
-    document.getElementById("restart").style.display = "block";
-}
-
-/* 再スタート */
-document.getElementById("restart").onclick = ()=>{
-    location.reload();
-};
+}, 1000));
 </script>
 
 </body>
