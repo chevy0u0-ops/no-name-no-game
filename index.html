@@ -1,45 +1,42 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<title>Catch Game</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Catch Game Fixed</title>
 
 <style>
     body {
         margin: 0;
         overflow: hidden;
-        background: #f7f7ff;
+        background: #f2faff;
         font-family: sans-serif;
+        touch-action: none;
     }
 
-    /* ▼▼ これがキャラ！絶対出る ▼▼ */
+    /* ワニ（かわいい画像） */
     #player {
         position: absolute;
-        bottom: 20px;
+        bottom: 10vh;
         left: 50%;
         transform: translateX(-50%);
-        width: 80px;
-        height: 80px;
-        background: #77ff88;
-        border-radius: 20px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 40px;
+        width: 90px;
+        height: 90px;
+        background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAAAAACPAi4CAAABRUlEQVR4Xu2WwY3DIAyF/3+f2LABLoEkpB6jwxKF1u9IiMaivGi99ZTSdKCbFf8gDuwZQzQ0jrISFRCGDpa2BkLomqKgkl0vvArkH5AO9M/dwZ0pniS3pSkeYg2rtI8BGG99nmCaTKty+O+kO5OVwOB1p5MNDoAuCEi0aKBslZx2drXr/7EQAD1gChX2NDSSSXqoQZnIcDplLWYwgd0CQOZgd0s8AjtKoa6HgMHqmpYyqn1nVbWcv16O3MHuvb6jVWeItPxX2VINeodIZ6h0hPqI6BjqISOlHqHSHRoCjql0hkaA46iEh1R6h0hk6BR6g0QcdpShUMpOWcZH/AsLiCFYI8aAizI0s4momkGLumZ5qAz6Ch12yvDregOiiMHDL/95B2S/bRMyCV2wAPOQgCXnADl5wA8pB0lPwQBGj62LF8A3BnQUwpsOSoAAAAASUVORK5CYII=');
+        background-size: contain;
+        background-repeat: no-repeat;
     }
 
-    /* 落ち物（フルーツ & 爆弾） */
     .item {
         position: absolute;
-        top: -50px;
-        width: 50px;
-        height: 50px;
+        top: -60px;
+        width: 70px;
+        height: 70px;
+        font-size: 40px;
         border-radius: 15px;
         display: flex;
         justify-content: center;
         align-items: center;
-        font-size: 28px;
-        color: white;
     }
 
     #score, #timer {
@@ -49,81 +46,134 @@
         color: #333;
     }
     #timer { top: 40px; }
+
+    #gameover {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 48px;
+        color: #ff4444;
+        display: none;
+    }
+
+    #restart {
+        position: absolute;
+        top: 65%;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 15px 30px;
+        background: #48aaff;
+        color: white;
+        border-radius: 10px;
+        font-size: 24px;
+        display: none;
+    }
 </style>
 </head>
 
 <body>
 
-<!-- ▼▼ これが無いから出てなかった！ ▼▼ -->
-<div id="player">🐊</div>
-
+<div id="player"></div>
 <div id="score">Score: 0</div>
 <div id="timer">Time: 30</div>
+<div id="gameover">GAME OVER</div>
+<div id="restart">Restart</div>
 
 <script>
-const player = document.getElementById("player");
 let score = 0;
 let timeLeft = 30;
+let falling = true;
+let moveX = window.innerWidth / 2;
 
-document.addEventListener("mousemove", (e) => {
-    player.style.left = e.clientX + "px";
+/* ワニ移動（スマホ対応） */
+document.addEventListener("touchmove", (e)=>{
+    moveX = e.touches[0].clientX;
+});
+document.addEventListener("mousemove", (e)=>{
+    moveX = e.clientX;
 });
 
-/* アイテム（フルーツ & 爆弾） */
-function spawnItem() {
+/* 毎フレーム移動 */
+setInterval(()=>{
+    document.getElementById("player").style.left = moveX + "px";
+},16);
+
+const fruits = ["🍎","🍌","🍇","🍑"];
+function spawnItem(){
+    if (!falling) return;
+
     const item = document.createElement("div");
     item.classList.add("item");
 
-    const fruits = ["🍎", "🍌", "🍇", "🍑"];
     const isBomb = Math.random() < 0.2;
-    item.textContent = isBomb ? "💣" : fruits[Math.floor(Math.random() * fruits.length)];
-    item.style.background = isBomb ? "red" : "orange";
+    item.textContent = isBomb ? "💣" : fruits[Math.floor(Math.random()*fruits.length)];
+    item.style.left = Math.random()*(window.innerWidth-70)+"px";
 
-    item.style.left = Math.random() * (window.innerWidth - 50) + "px";
     document.body.appendChild(item);
 
-    let topPos = -50;
-    const fall = setInterval(() => {
-        topPos += 4;
-        item.style.top = topPos + "px";
+    let y = -60;
+    const fall = setInterval(()=>{
+        if (!falling){
+            clearInterval(fall);
+            item.remove();
+            return;
+        }
+
+        y += 5;
+        item.style.top = y+"px";
 
         const p = player.getBoundingClientRect();
-        const it = item.getBoundingClientRect();
+        const b = item.getBoundingClientRect();
 
         if (
-            it.bottom > p.top &&
-            it.top < p.bottom &&
-            it.right > p.left &&
-            it.left < p.right
-        ) {
+            b.bottom > p.top &&
+            b.top < p.bottom &&
+            b.right > p.left &&
+            b.left < p.right
+        ){
             clearInterval(fall);
             item.remove();
 
-            if (item.textContent === "💣") {
-                score -= 2;
+            if (isBomb){
+                gameOver();
             } else {
                 score++;
+                scoreBox.textContent = "Score: " + score;
             }
-
-            document.getElementById("score").textContent = "Score: " + score;
         }
 
-        if (topPos > window.innerHeight) {
+        if (y > window.innerHeight){
             clearInterval(fall);
             item.remove();
         }
-    }, 16);
+    },16);
 }
 
-setInterval(spawnItem, 700);
+const scoreBox = document.getElementById("score");
+const timerBox = document.getElementById("timer");
 
-/* タイマー */
-setInterval(() => {
-    if (timeLeft > 0) {
+setInterval(()=>{
+    if (falling && timeLeft > 0){
         timeLeft--;
-        document.getElementById("timer").textContent = "Time: " + timeLeft;
+        timerBox.textContent = "Time: "+timeLeft;
+        if (timeLeft === 0) gameOver();
     }
-}, 1000);
+},1000);
+
+setInterval(spawnItem, 800);
+
+/* ゲームオーバー処理 */
+function gameOver(){
+    falling = false;
+    document.getElementById("gameover").style.display = "block";
+    document.getElementById("restart").style.display = "block";
+}
+
+/* 再スタート */
+document.getElementById("restart").onclick = ()=>{
+    location.reload();
+};
 </script>
 
 </body>
