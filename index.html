@@ -16,23 +16,23 @@ body {
     font-family: sans-serif;
 }
 
-/* ワニキャラ（可愛いPNGに変更済み） */
+/* ワニ（画像） */
 #player {
     position: absolute;
     bottom: 5vh;
     left: 50%;
     transform: translateX(-50%);
-    width: 150px;
-    pointer-events: none;
+    width: 160px;
+    transition: 0.05s;
 }
 
-/* 落ち物 */
+/* 落下物（大きめ） */
 .item {
     position: absolute;
-    top: -150px;
-    width: 130px;
-    height: 130px;
-    font-size: 100px;
+    top: -160px;
+    width: 140px;
+    height: 140px;
+    font-size: 110px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -42,21 +42,20 @@ body {
 #score, #timer {
     position: absolute;
     left: 10px;
-    font-size: 28px;
+    font-size: 30px;
 }
 #timer { top: 40px; }
 
-/* リスタートボタン */
-#restart {
+#restartBtn {
     position: absolute;
     top: 40%;
     left: 50%;
     transform: translateX(-50%);
     padding: 20px 40px;
-    font-size: 26px;
-    background: #44ccff;
+    background: #fff;
+    border-radius: 10px;
     color: #000;
-    border-radius: 15px;
+    font-size: 30px;
     display: none;
 }
 </style>
@@ -64,38 +63,34 @@ body {
 
 <body>
 
-<!-- ★ ワニPNG画像（絶対表示される） -->
-<img id="player" src="https://i.imgur.com/qDe7RwZ.png">
+<img id="player" src="wani_normal.png">
 
 <div id="score">Score: 0</div>
 <div id="timer">Time: 30</div>
-<div id="restart">もう一回！</div>
+
+<div id="restartBtn">もう一回！</div>
 
 <script>
 let score = 0;
 let time = 30;
 let running = true;
-let intervals = [];
+let playerX = window.innerWidth / 2;
+const fruits = ["🍎","🍌","🍇","🍑","🍓"];
 
 const player = document.getElementById("player");
-const restartBtn = document.getElementById("restart");
-let playerX = window.innerWidth / 2;
 
-/* スマホ&PC操作 */
+/* 操作（スマホ&PC） */
 document.addEventListener("touchstart", e => playerX = e.touches[0].clientX);
 document.addEventListener("touchmove",  e => playerX = e.touches[0].clientX);
 document.addEventListener("mousemove",  e => playerX = e.clientX);
 
-/* プレイヤー追従 */
-intervals.push(setInterval(()=>{
-    player.style.left = (playerX - 75) + "px";
-}, 16));
-
-/* フルーツ */
-const fruits = ["🍎","🍌","🍇","🍑","🍓"];
+/* プレイヤー移動 */
+setInterval(()=>{
+    player.style.left = (playerX - player.width/2) + "px";
+}, 16);
 
 /* 落下物生成 */
-function spawn(){
+function spawnItem(){
     if (!running) return;
 
     const item = document.createElement("div");
@@ -104,10 +99,10 @@ function spawn(){
     const isBomb = Math.random() < 0.25;
     item.textContent = isBomb ? "💣" : fruits[Math.floor(Math.random()*fruits.length)];
 
-    item.style.left = Math.random() * (window.innerWidth - 130) + "px";
+    item.style.left = Math.random() * (window.innerWidth - 140) + "px";
     document.body.appendChild(item);
 
-    let y = -150;
+    let y = -160;
 
     const fall = setInterval(()=>{
         if (!running){
@@ -119,10 +114,10 @@ function spawn(){
         y += 7;
         item.style.top = y + "px";
 
-        // 当たり判定
         const p = player.getBoundingClientRect();
         const b = item.getBoundingClientRect();
 
+        // 当たり判定
         if (
             b.bottom > p.top &&
             b.top < p.bottom &&
@@ -132,26 +127,30 @@ function spawn(){
             clearInterval(fall);
             item.remove();
 
+            // 口開く → 200ms で閉じる
+            player.src = "wani_open.png";
+            setTimeout(()=> player.src = "wani_normal.png", 200);
+
+            // スコア計算
             if (isBomb) score--;
             else score++;
 
             document.getElementById("score").textContent = "Score: " + score;
         }
 
+        // 画面外で削除
         if (y > window.innerHeight){
             clearInterval(fall);
             item.remove();
         }
     }, 16);
-
-    intervals.push(fall);
 }
 
-/* 0.7秒ごとに落下 */
-intervals.push(setInterval(spawn, 700));
+/* 一定間隔で落下 */
+let spawnInterval = setInterval(spawnItem, 650);
 
 /* タイマー */
-intervals.push(setInterval(()=>{
+let timerInterval = setInterval(()=>{
     if (!running) return;
 
     time--;
@@ -159,37 +158,16 @@ intervals.push(setInterval(()=>{
 
     if (time <= 0){
         running = false;
-        restartBtn.style.display = "block";
+        clearInterval(spawnInterval);
+        clearInterval(timerInterval);
+        document.getElementById("restartBtn").style.display = "block";
     }
-}, 1000));
+}, 1000);
 
 /* リスタート */
-restartBtn.addEventListener("click", ()=>{
-    // 全部クリア
-    intervals.forEach(i => clearInterval(i));
-    document.querySelectorAll(".item").forEach(el => el.remove());
-
-    // 初期化
-    score = 0;
-    time = 30;
-    running = true;
-    document.getElementById("score").textContent = "Score: 0";
-    document.getElementById("timer").textContent = "Time: 30";
-    restartBtn.style.display = "none";
-
-    // 再開
-    intervals = [];
-    intervals.push(setInterval(spawn, 700));
-    intervals.push(setInterval(()=>{
-        if (!running) return;
-        time--;
-        document.getElementById("timer").textContent = "Time: " + time;
-        if (time <= 0){
-            running = false;
-            restartBtn.style.display = "block";
-        }
-    }, 1000));
-});
+document.getElementById("restartBtn").onclick = () => {
+    location.reload();
+};
 </script>
 
 </body>
