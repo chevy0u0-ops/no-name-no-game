@@ -16,22 +16,23 @@ body {
     font-family: sans-serif;
 }
 
-/* ワニ：img なので絶対表示される */
+/* ワニキャラ（可愛いPNGに変更済み） */
 #player {
     position: absolute;
     bottom: 5vh;
     left: 50%;
     transform: translateX(-50%);
-    width: 140px;
+    width: 150px;
+    pointer-events: none;
 }
 
-/* 落下物サイズ大きめ */
+/* 落ち物 */
 .item {
     position: absolute;
     top: -150px;
-    width: 120px;
-    height: 120px;
-    font-size: 90px;
+    width: 130px;
+    height: 130px;
+    font-size: 100px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -44,16 +45,31 @@ body {
     font-size: 28px;
 }
 #timer { top: 40px; }
+
+/* リスタートボタン */
+#restart {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 20px 40px;
+    font-size: 26px;
+    background: #44ccff;
+    color: #000;
+    border-radius: 15px;
+    display: none;
+}
 </style>
 </head>
 
 <body>
 
-<!-- ★ 画像のワニ（絶対表示される） -->
-<img id="player" src="https://i.imgur.com/F0bqC7A.png">
+<!-- ★ ワニPNG画像（絶対表示される） -->
+<img id="player" src="https://i.imgur.com/qDe7RwZ.png">
 
 <div id="score">Score: 0</div>
 <div id="timer">Time: 30</div>
+<div id="restart">もう一回！</div>
 
 <script>
 let score = 0;
@@ -62,18 +78,20 @@ let running = true;
 let intervals = [];
 
 const player = document.getElementById("player");
+const restartBtn = document.getElementById("restart");
 let playerX = window.innerWidth / 2;
 
-/* スマホ・PC 両対応 移動 */
+/* スマホ&PC操作 */
 document.addEventListener("touchstart", e => playerX = e.touches[0].clientX);
 document.addEventListener("touchmove",  e => playerX = e.touches[0].clientX);
 document.addEventListener("mousemove",  e => playerX = e.clientX);
 
-/* プレイヤー動かす */
+/* プレイヤー追従 */
 intervals.push(setInterval(()=>{
-    player.style.left = (playerX - 70) + "px";
+    player.style.left = (playerX - 75) + "px";
 }, 16));
 
+/* フルーツ */
 const fruits = ["🍎","🍌","🍇","🍑","🍓"];
 
 /* 落下物生成 */
@@ -86,7 +104,7 @@ function spawn(){
     const isBomb = Math.random() < 0.25;
     item.textContent = isBomb ? "💣" : fruits[Math.floor(Math.random()*fruits.length)];
 
-    item.style.left = Math.random() * (window.innerWidth - 120) + "px";
+    item.style.left = Math.random() * (window.innerWidth - 130) + "px";
     document.body.appendChild(item);
 
     let y = -150;
@@ -98,7 +116,7 @@ function spawn(){
             return;
         }
 
-        y += 6;
+        y += 7;
         item.style.top = y + "px";
 
         // 当たり判定
@@ -114,7 +132,6 @@ function spawn(){
             clearInterval(fall);
             item.remove();
 
-            // ★ここを必ずマイナスのみ
             if (isBomb) score--;
             else score++;
 
@@ -130,20 +147,49 @@ function spawn(){
     intervals.push(fall);
 }
 
-/* 0.7秒おきに落下 */
+/* 0.7秒ごとに落下 */
 intervals.push(setInterval(spawn, 700));
 
 /* タイマー */
 intervals.push(setInterval(()=>{
     if (!running) return;
+
     time--;
     document.getElementById("timer").textContent = "Time: " + time;
 
     if (time <= 0){
         running = false;
-        intervals.forEach(i => clearInterval(i)); // 全停止
+        restartBtn.style.display = "block";
     }
 }, 1000));
+
+/* リスタート */
+restartBtn.addEventListener("click", ()=>{
+    // 全部クリア
+    intervals.forEach(i => clearInterval(i));
+    document.querySelectorAll(".item").forEach(el => el.remove());
+
+    // 初期化
+    score = 0;
+    time = 30;
+    running = true;
+    document.getElementById("score").textContent = "Score: 0";
+    document.getElementById("timer").textContent = "Time: 30";
+    restartBtn.style.display = "none";
+
+    // 再開
+    intervals = [];
+    intervals.push(setInterval(spawn, 700));
+    intervals.push(setInterval(()=>{
+        if (!running) return;
+        time--;
+        document.getElementById("timer").textContent = "Time: " + time;
+        if (time <= 0){
+            running = false;
+            restartBtn.style.display = "block";
+        }
+    }, 1000));
+});
 </script>
 
 </body>
