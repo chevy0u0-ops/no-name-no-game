@@ -7,65 +7,72 @@
     body {
         margin: 0;
         overflow: hidden;
-        background: #f9f5e8;
-        font-family: sans-serif;
+        background: #f8f5e6;
     }
     #gameCanvas {
-        background: #e8e1d0;
         display: block;
         margin: 0 auto;
+        background: #e8dfc8;
+        touch-action: none;
     }
 </style>
 </head>
 <body>
 
-<canvas id="gameCanvas" width="400" height="600"></canvas>
+<canvas id="gameCanvas"></canvas>
 
 <script>
-// ----- Canvas Setup -----
+// ----- Responsive Canvas -----
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+// スマホの幅に自動フィット
+function resizeCanvas() {
+    canvas.width = window.innerWidth * 0.9;
+    canvas.height = window.innerHeight * 0.85;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
 // ----- Basket -----
 const basket = {
-    x: canvas.width / 2 - 40,
-    y: canvas.height - 80,
-    width: 80,
-    height: 45,
-    speed: 6
+    x: canvas.width / 2 - 60,
+    y: canvas.height - 120,
+    width: 120,
+    height: 60,
+    speed: 10
 };
 
-// ----- Fruits & Bomb -----
+// ----- Objects -----
 const fruitTypes = ["🍎", "🍌", "🍇", "🍒"];
 let objects = [];
 let score = 0;
-let lastFruit = null; // 連続ボーナス用
+let lastFruit = null;
 
-// ----- Spawn Objects -----
+// ----- Spawn Falling Items -----
 function spawnObject() {
-    const isBomb = Math.random() < 0.25; // 爆弾は少し多く
-    const size = 35; // 3分の2サイズ（調整済）
+    const isBomb = Math.random() < 0.3; // 爆弾多め
+    const size = 55; // サイズアップ
 
     objects.push({
         x: Math.random() * (canvas.width - size),
-        y: -50,
+        y: -60,
         size: size,
-        speed: 2 + Math.random() * 2,
+        speed: 3 + Math.random() * 2,
         type: isBomb ? "💣" : fruitTypes[Math.floor(Math.random() * fruitTypes.length)]
     });
 }
-
-setInterval(spawnObject, 700);
+setInterval(spawnObject, 650);
 
 // ----- Draw Basket -----
 function drawBasket() {
-    ctx.fillStyle = "#8b5a2b"; // 木製風
+    ctx.fillStyle = "#8b5a2b";
     ctx.fillRect(basket.x, basket.y, basket.width, basket.height);
 }
 
 // ----- Draw Objects -----
 function drawObjects() {
-    ctx.font = "30px serif";
+    ctx.font = "45px serif";
     objects.forEach(obj => {
         ctx.fillText(obj.type, obj.x, obj.y);
     });
@@ -77,7 +84,7 @@ function updateObjects() {
         let obj = objects[i];
         obj.y += obj.speed;
 
-        // カゴとの当たり判定
+        // ---- Collision ----
         if (
             obj.y + obj.size > basket.y &&
             obj.x < basket.x + basket.width &&
@@ -89,20 +96,15 @@ function updateObjects() {
                 return;
             }
 
-            // フルーツ獲得
             score += 5;
-
-            // ボーナス：同じフルーツ連続
-            if (obj.type === lastFruit) {
-                score += 10; // ボーナス
-            }
+            if (obj.type === lastFruit) score += 10;
             lastFruit = obj.type;
 
             objects.splice(i, 1);
             i--;
         }
 
-        // 画面外処理
+        // ---- Out of screen ----
         if (obj.y > canvas.height) {
             objects.splice(i, 1);
             i--;
@@ -110,11 +112,11 @@ function updateObjects() {
     }
 }
 
-// ----- Draw Score -----
+// ----- Score -----
 function drawScore() {
     ctx.fillStyle = "#000";
-    ctx.font = "20px sans-serif";
-    ctx.fillText("Score: " + score, 10, 30);
+    ctx.font = "24px sans-serif";
+    ctx.fillText("Score: " + score, 15, 35);
 }
 
 // ----- Game Loop -----
@@ -128,18 +130,8 @@ function gameLoop() {
 
     requestAnimationFrame(gameLoop);
 }
-
 gameLoop();
 
 // ----- Controls -----
 document.addEventListener("keydown", e => {
     if (e.key === "ArrowLeft") basket.x -= basket.speed;
-    if (e.key === "ArrowRight") basket.x += basket.speed;
-
-    // 画面外に出ないように
-    basket.x = Math.max(0, Math.min(canvas.width - basket.width, basket.x));
-});
-</script>
-
-</body>
-</html>
