@@ -6,55 +6,68 @@
 <title>Fruit Catch</title>
 <style>
     body {
-        background: #f6f2e8;
-        text-align: center;
         margin: 0;
+        background: #f6f2e8;
+        overflow: hidden;
     }
     canvas {
-        background: #e8dfcf;
         display: block;
-        margin: 0 auto;
+        background: #e8dfcf;
     }
 </style>
 </head>
 <body>
 
-<canvas id="gameCanvas" width="350" height="500"></canvas>
+<canvas id="gameCanvas"></canvas>
 
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-let score = 0;
+// ===== 画面サイズを全画面に =====
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
 
-// カゴ
+// ===== ゲーム状態 =====
+let score = 0;
+let timeLeft = 30; // 制限時間（秒）
+let gameOver = false;
+
+// ===== カゴ =====
 const basket = {
-    x: canvas.width / 2 - 35,
-    y: canvas.height - 60,
-    width: 70,
-    height: 40,
-    speed: 6,
+    width: 80,
+    height: 45,
+    x: canvas.width / 2 - 40,
+    y: canvas.height - 80,
+    speed: 7,
     dx: 0
 };
 
-// フルーツと爆弾
+// ===== アイテム =====
 const items = [];
 const fruitList = ["🍎", "🍌", "🍒", "🍇"];
 const bomb = "💣";
 
+// ===== アイテム生成 =====
 function spawnItem() {
-    const isBomb = Math.random() < 0.3; // 爆弾多め
-    const size = 30; // 2/3くらいのサイズ
+    const isBomb = Math.random() < 0.35; // 爆弾多め
+    const size = 30;
+
     items.push({
         emoji: isBomb ? bomb : fruitList[Math.floor(Math.random() * fruitList.length)],
         x: Math.random() * (canvas.width - size),
-        y: -20,
+        y: -30,
         size: size,
         speed: 2 + Math.random() * 2,
         isBomb: isBomb
     });
 }
 
+// ===== 描画 =====
 function drawBasket() {
     ctx.fillStyle = "#8B4513";
     ctx.fillRect(basket.x, basket.y, basket.width, basket.height);
@@ -62,10 +75,25 @@ function drawBasket() {
 
 function drawItems() {
     ctx.font = "28px serif";
-
     items.forEach(item => {
         ctx.fillText(item.emoji, item.x, item.y);
     });
+}
+
+function drawUI() {
+    ctx.fillStyle = "#000";
+    ctx.font = "18px Arial";
+    ctx.fillText("Score: " + score, 10, 30);
+    ctx.fillText("Time: " + timeLeft, canvas.width - 90, 30);
+}
+
+// ===== 移動処理 =====
+function moveBasket() {
+    basket.x += basket.dx;
+    if (basket.x < 0) basket.x = 0;
+    if (basket.x + basket.width > canvas.width) {
+        basket.x = canvas.width - basket.width;
+    }
 }
 
 function moveItems() {
@@ -79,7 +107,10 @@ function moveItems() {
             item.x < basket.x + basket.width
         ) {
             if (item.isBomb) {
-                // 爆弾 → スコア減らない
+                score -= 2;
+                timeLeft -= 3;
+                if (score < 0) score = 0;
+                if (timeLeft < 0) timeLeft = 0;
             } else {
                 score += 1;
             }
@@ -93,46 +124,53 @@ function moveItems() {
     });
 }
 
-function moveBasket() {
-    basket.x += basket.dx;
-
-    if (basket.x < 0) basket.x = 0;
-    if (basket.x + basket.width > canvas.width) basket.x = canvas.width - basket.width;
-}
-
-function drawScore() {
-    ctx.fillStyle = "#000";
-    ctx.font = "18px Arial";
-    ctx.fillText("Score: " + score, 10, 20);
-}
-
+// ===== メインループ =====
 function update() {
+    if (gameOver) {
+        ctx.fillStyle = "#000";
+        ctx.font = "32px Arial";
+        ctx.fillText("TIME UP", canvas.width / 2 - 80, canvas.height / 2);
+        ctx.font = "20px Arial";
+        ctx.fillText("Score: " + score, canvas.width / 2 - 50, canvas.height / 2 + 40);
+        return;
+    }
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (Math.random() < 0.03) spawnItem();
+    if (Math.random() < 0.04) spawnItem();
 
-    moveItems();
     moveBasket();
+    moveItems();
 
     drawItems();
     drawBasket();
-    drawScore();
+    drawUI();
 
     requestAnimationFrame(update);
 }
 
-document.addEventListener("keydown", (e) => {
+// ===== タイマー =====
+const timer = setInterval(() => {
+    if (!gameOver) {
+        timeLeft--;
+        if (timeLeft <= 0) {
+            gameOver = true;
+            clearInterval(timer);
+        }
+    }
+}, 1000);
+
+// ===== 操作 =====
+document.addEventListener("keydown", e => {
     if (e.key === "ArrowLeft") basket.dx = -basket.speed;
     if (e.key === "ArrowRight") basket.dx = basket.speed;
 });
-
 document.addEventListener("keyup", () => basket.dx = 0);
 
-// スマホ（タッチ操作）
-canvas.addEventListener("touchmove", (e) => {
+// スマホ操作
+canvas.addEventListener("touchmove", e => {
     const rect = canvas.getBoundingClientRect();
-    const touchX = e.touches[0].clientX - rect.left;
-    basket.x = touchX - basket.width / 2;
+    basket.x = e.touches[0].clientX - rect.left - basket.width / 2;
 });
 
 update();
