@@ -3,177 +3,219 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Fruit Catch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fruit Basket Catch</title>
+
 <style>
-    body {
-        margin: 0;
-        background: #f6f2e8;
-        overflow: hidden;
-    }
-    canvas {
-        display: block;
-        background: #e8dfcf;
-    }
+body {
+    margin: 0;
+    background: #f6f2e8;
+    font-family: sans-serif;
+    overflow: hidden;
+}
+
+/* 共通 */
+canvas {
+    display: block;
+    margin: 0 auto;
+    background: #e8dfcf;
+}
+
+/* ボタン */
+.button {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 14px 30px;
+    background: #8B5A2B;
+    color: #fff;
+    font-size: 20px;
+    border-radius: 12px;
+}
 </style>
 </head>
+
 <body>
 
-<canvas id="gameCanvas"></canvas>
+<canvas id="game" width="360" height="640"></canvas>
+<div id="startBtn" class="button" style="bottom: 140px;">START</div>
+<div id="restartBtn" class="button" style="bottom: 140px; display:none;">RESTART</div>
 
 <script>
-const canvas = document.getElementById("gameCanvas");
+const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-// ===== 画面サイズを全画面に =====
-function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-}
-resizeCanvas();
-window.addEventListener("resize", resizeCanvas);
-
-// ===== ゲーム状態 =====
+let scene = "title"; // title, game, result
 let score = 0;
-let timeLeft = 30; // 制限時間（秒）
-let gameOver = false;
+let time = 30;
 
-// ===== カゴ =====
+const fruits = ["🍎","🍌","🍇","🍒","🍑"];
+const bomb = "💣";
+let items = [];
+
+// カゴ
 const basket = {
-    width: 80,
-    height: 45,
-    x: canvas.width / 2 - 40,
+    x: canvas.width / 2 - 50,
     y: canvas.height - 80,
-    speed: 7,
-    dx: 0
+    width: 100,
+    height: 50
 };
 
-// ===== アイテム =====
-const items = [];
-const fruitList = ["🍎", "🍌", "🍒", "🍇"];
-const bomb = "💣";
+// ====================
+// タイトル画面
+// ====================
+function drawTitle() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
-// ===== アイテム生成 =====
+    // フルーツ背景
+    for (let i = 0; i < 40; i++) {
+        ctx.font = `${20 + Math.random()*30}px serif`;
+        const emoji = Math.random() < 0.2 ? bomb : fruits[Math.floor(Math.random()*fruits.length)];
+        ctx.fillText(emoji, Math.random()*canvas.width, Math.random()*canvas.height);
+    }
+
+    // タイトル
+    ctx.fillStyle = "#5a3b1e";
+    ctx.fillRect(40, 220, 280, 80);
+    ctx.fillStyle = "#fff";
+    ctx.font = "28px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Fruit Basket Catch", canvas.width/2, 270);
+}
+
+// ====================
+// ゲーム処理
+// ====================
 function spawnItem() {
-    const isBomb = Math.random() < 0.35; // 爆弾多め
-    const size = 30;
-
+    const isBomb = Math.random() < 0.35;
     items.push({
-        emoji: isBomb ? bomb : fruitList[Math.floor(Math.random() * fruitList.length)],
-        x: Math.random() * (canvas.width - size),
-        y: -30,
-        size: size,
-        speed: 2 + Math.random() * 2,
-        isBomb: isBomb
+        emoji: isBomb ? bomb : fruits[Math.floor(Math.random()*fruits.length)],
+        x: Math.random()*(canvas.width-40),
+        y: -40,
+        speed: 2 + Math.random()*2,
+        isBomb
     });
 }
 
-// ===== 描画 =====
 function drawBasket() {
+    // 木製カゴ風
     ctx.fillStyle = "#8B4513";
     ctx.fillRect(basket.x, basket.y, basket.width, basket.height);
-}
-
-function drawItems() {
-    ctx.font = "28px serif";
-    items.forEach(item => {
-        ctx.fillText(item.emoji, item.x, item.y);
-    });
-}
-
-function drawUI() {
-    ctx.fillStyle = "#000";
-    ctx.font = "18px Arial";
-    ctx.fillText("Score: " + score, 10, 30);
-    ctx.fillText("Time: " + timeLeft, canvas.width - 90, 30);
-}
-
-// ===== 移動処理 =====
-function moveBasket() {
-    basket.x += basket.dx;
-    if (basket.x < 0) basket.x = 0;
-    if (basket.x + basket.width > canvas.width) {
-        basket.x = canvas.width - basket.width;
+    ctx.strokeStyle = "#5a2f0f";
+    for (let i = 0; i < basket.width; i += 10) {
+        ctx.beginPath();
+        ctx.moveTo(basket.x + i, basket.y);
+        ctx.lineTo(basket.x + i, basket.y + basket.height);
+        ctx.stroke();
     }
 }
 
-function moveItems() {
-    items.forEach((item, i) => {
-        item.y += item.speed;
-
-        // 当たり判定
-        if (
-            item.y + item.size > basket.y &&
-            item.x + item.size > basket.x &&
-            item.x < basket.x + basket.width
-        ) {
-            if (item.isBomb) {
-                score -= 2;
-                timeLeft -= 3;
-                if (score < 0) score = 0;
-                if (timeLeft < 0) timeLeft = 0;
-            } else {
-                score += 1;
-            }
-            items.splice(i, 1);
-        }
-
-        // 画面外
-        if (item.y > canvas.height) {
-            items.splice(i, 1);
-        }
-    });
-}
-
-// ===== メインループ =====
-function update() {
-    if (gameOver) {
-        ctx.fillStyle = "#000";
-        ctx.font = "32px Arial";
-        ctx.fillText("TIME UP", canvas.width / 2 - 80, canvas.height / 2);
-        ctx.font = "20px Arial";
-        ctx.fillText("Score: " + score, canvas.width / 2 - 50, canvas.height / 2 + 40);
-        return;
-    }
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+function updateGame() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
     if (Math.random() < 0.04) spawnItem();
 
-    moveBasket();
-    moveItems();
+    items.forEach((item, i) => {
+        item.y += item.speed;
+        ctx.font = "36px serif";
+        ctx.fillText(item.emoji, item.x, item.y);
 
-    drawItems();
+        // 当たり判定
+        if (
+            item.y > basket.y &&
+            item.x > basket.x - 20 &&
+            item.x < basket.x + basket.width
+        ) {
+            score += item.isBomb ? -1 : 1;
+            items.splice(i,1);
+        }
+
+        if (item.y > canvas.height) items.splice(i,1);
+    });
+
     drawBasket();
-    drawUI();
 
-    requestAnimationFrame(update);
+    // UI
+    ctx.fillStyle = "#000";
+    ctx.font = "18px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("Score: " + score, 10, 25);
+    ctx.textAlign = "right";
+    ctx.fillText("Time: " + time, canvas.width-10, 25);
 }
 
-// ===== タイマー =====
-const timer = setInterval(() => {
-    if (!gameOver) {
-        timeLeft--;
-        if (timeLeft <= 0) {
-            gameOver = true;
-            clearInterval(timer);
-        }
-    }
-}, 1000);
+// ====================
+// リザルト
+// ====================
+function drawResult() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = "#5a3b1e";
+    ctx.fillRect(40, 240, 280, 120);
 
-// ===== 操作 =====
-document.addEventListener("keydown", e => {
-    if (e.key === "ArrowLeft") basket.dx = -basket.speed;
-    if (e.key === "ArrowRight") basket.dx = basket.speed;
-});
-document.addEventListener("keyup", () => basket.dx = 0);
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.font = "28px sans-serif";
+    ctx.fillText("TIME UP", canvas.width/2, 290);
+    ctx.font = "22px sans-serif";
+    ctx.fillText("Score: " + score, canvas.width/2, 330);
+}
 
-// スマホ操作
+// ====================
+// 操作
+// ====================
 canvas.addEventListener("touchmove", e => {
     const rect = canvas.getBoundingClientRect();
-    basket.x = e.touches[0].clientX - rect.left - basket.width / 2;
+    basket.x = e.touches[0].clientX - rect.left - basket.width/2;
 });
 
-update();
+document.addEventListener("mousemove", e => {
+    basket.x = e.clientX - basket.width/2;
+});
+
+// ====================
+// ループ
+// ====================
+function loop() {
+    if (scene === "title") drawTitle();
+    if (scene === "game") updateGame();
+    if (scene === "result") drawResult();
+    requestAnimationFrame(loop);
+}
+loop();
+
+// ====================
+// ボタン
+// ====================
+const startBtn = document.getElementById("startBtn");
+const restartBtn = document.getElementById("restartBtn");
+
+startBtn.onclick = () => {
+    scene = "game";
+    score = 0;
+    time = 30;
+    items = [];
+    startBtn.style.display = "none";
+
+    // タイマー
+    const timer = setInterval(()=>{
+        if (scene !== "game") return;
+        time--;
+        if (time <= 0) {
+            scene = "result";
+            restartBtn.style.display = "block";
+            clearInterval(timer);
+
+            // ★★★ 広告を入れるならここ ★★★
+            // showInterstitialAd();
+        }
+    },1000);
+};
+
+restartBtn.onclick = () => {
+    scene = "title";
+    restartBtn.style.display = "none";
+    startBtn.style.display = "block";
+};
 </script>
 
 </body>
