@@ -1,34 +1,54 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Fruit Basket Catch</title>
 
 <style>
-body {
+html, body {
     margin: 0;
+    padding: 0;
     background: #f6f2e8;
-    font-family: sans-serif;
-    overflow: hidden;
+    text-align: center;
+    font-family: Arial, sans-serif;
 }
 
-/* 共通 */
-canvas {
-    display: block;
+#gameWrapper {
+    width: 375px;   /* スマホ固定幅 */
+    height: 600px;
     margin: 0 auto;
-    background: #e8dfcf;
+    position: relative;
 }
 
-/* ボタン */
-.button {
+canvas {
+    background: #e8dfcf;
+    display: block;
+}
+
+#overlay {
     position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 14px 30px;
-    background: #8B5A2B;
+    inset: 0;
+    background: #e8dfcf;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#titleBox {
+    background: #6b4423;
     color: #fff;
+    padding: 14px 28px;
+    font-size: 28px;
+    margin-bottom: 30px;
+}
+
+#startBtn {
+    background: #8b5a2b;
+    color: #fff;
+    border: none;
+    padding: 14px 40px;
     font-size: 20px;
     border-radius: 12px;
 }
@@ -37,185 +57,147 @@ canvas {
 
 <body>
 
-<canvas id="game" width="360" height="640"></canvas>
-<div id="startBtn" class="button" style="bottom: 140px;">START</div>
-<div id="restartBtn" class="button" style="bottom: 140px; display:none;">RESTART</div>
+<div id="gameWrapper">
+    <canvas id="gameCanvas" width="375" height="600"></canvas>
+
+    <div id="overlay">
+        <div id="titleBox">Fruit Basket Catch</div>
+        <button id="startBtn">START</button>
+    </div>
+</div>
 
 <script>
-const canvas = document.getElementById("game");
+const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+const overlay = document.getElementById("overlay");
 
-let scene = "title"; // title, game, result
-let score = 0;
-let time = 30;
+const FRUITS = ["🍎","🍌","🍇","🍒","🍑"];
+const BOMB = "💣";
 
-const fruits = ["🍎","🍌","🍇","🍒","🍑"];
-const bomb = "💣";
 let items = [];
+let score = 0;
+let timeLeft = 30;
+let gameRunning = false;
 
-// カゴ
+/* 🧺 カゴ（編み込み風） */
 const basket = {
-    x: canvas.width / 2 - 50,
-    y: canvas.height - 80,
+    x: canvas.width/2 - 50,
+    y: canvas.height - 70,
     width: 100,
-    height: 50
+    height: 40
 };
 
-// ====================
-// タイトル画面
-// ====================
-function drawTitle() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    // フルーツ背景
-    for (let i = 0; i < 40; i++) {
-        ctx.font = `${20 + Math.random()*30}px serif`;
-        const emoji = Math.random() < 0.2 ? bomb : fruits[Math.floor(Math.random()*fruits.length)];
-        ctx.fillText(emoji, Math.random()*canvas.width, Math.random()*canvas.height);
-    }
-
-    // タイトル
-    ctx.fillStyle = "#5a3b1e";
-    ctx.fillRect(40, 220, 280, 80);
-    ctx.fillStyle = "#fff";
-    ctx.font = "28px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("Fruit Basket Catch", canvas.width/2, 270);
+/* ---------- タイトル背景（静止） ---------- */
+const titleItems = [];
+for(let i=0;i<40;i++){
+    titleItems.push({
+        emoji: Math.random()<0.25 ? BOMB : FRUITS[Math.floor(Math.random()*FRUITS.length)],
+        x: Math.random()*canvas.width,
+        y: Math.random()*canvas.height
+    });
 }
 
-// ====================
-// ゲーム処理
-// ====================
-function spawnItem() {
-    const isBomb = Math.random() < 0.35;
+function drawTitleBackground(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.font = "32px serif";
+    titleItems.forEach(i=>{
+        ctx.fillText(i.emoji,i.x,i.y);
+    });
+}
+
+/* ---------- ゲーム処理 ---------- */
+function spawnItem(){
+    const isBomb = Math.random() < 0.3;
     items.push({
-        emoji: isBomb ? bomb : fruits[Math.floor(Math.random()*fruits.length)],
-        x: Math.random()*(canvas.width-40),
-        y: -40,
+        emoji: isBomb ? BOMB : FRUITS[Math.floor(Math.random()*FRUITS.length)],
+        x: Math.random()*(canvas.width-30),
+        y: -30,
         speed: 2 + Math.random()*2,
         isBomb
     });
 }
 
-function drawBasket() {
-    // 木製カゴ風
-    ctx.fillStyle = "#8B4513";
-    ctx.fillRect(basket.x, basket.y, basket.width, basket.height);
-    ctx.strokeStyle = "#5a2f0f";
-    for (let i = 0; i < basket.width; i += 10) {
+function drawBasket(){
+    ctx.fillStyle = "#8b5a2b";
+    ctx.fillRect(basket.x,basket.y,basket.width,basket.height);
+
+    ctx.strokeStyle = "#6b4423";
+    for(let i=0;i<5;i++){
         ctx.beginPath();
-        ctx.moveTo(basket.x + i, basket.y);
-        ctx.lineTo(basket.x + i, basket.y + basket.height);
+        ctx.moveTo(basket.x + i*20, basket.y);
+        ctx.lineTo(basket.x + i*20, basket.y + basket.height);
         ctx.stroke();
     }
 }
 
-function updateGame() {
+function updateGame(){
+    if(!gameRunning) return;
+
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    if (Math.random() < 0.04) spawnItem();
+    if(Math.random()<0.04) spawnItem();
 
-    items.forEach((item, i) => {
+    items.forEach((item,i)=>{
         item.y += item.speed;
-        ctx.font = "36px serif";
-        ctx.fillText(item.emoji, item.x, item.y);
+        ctx.font = "30px serif";
+        ctx.fillText(item.emoji,item.x,item.y);
 
-        // 当たり判定
-        if (
+        if(
             item.y > basket.y &&
-            item.x > basket.x - 20 &&
+            item.x > basket.x &&
             item.x < basket.x + basket.width
-        ) {
-            score += item.isBomb ? -1 : 1;
+        ){
+            score += item.isBomb ? -2 : 1;
             items.splice(i,1);
         }
 
-        if (item.y > canvas.height) items.splice(i,1);
+        if(item.y > canvas.height){
+            items.splice(i,1);
+        }
     });
 
     drawBasket();
 
-    // UI
-    ctx.fillStyle = "#000";
-    ctx.font = "18px sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText("Score: " + score, 10, 25);
-    ctx.textAlign = "right";
-    ctx.fillText("Time: " + time, canvas.width-10, 25);
+    ctx.fillStyle="#000";
+    ctx.font="18px Arial";
+    ctx.fillText("Score: "+score,10,25);
+    ctx.fillText("Time: "+timeLeft,280,25);
+
+    requestAnimationFrame(updateGame);
 }
 
-// ====================
-// リザルト
-// ====================
-function drawResult() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle = "#5a3b1e";
-    ctx.fillRect(40, 240, 280, 120);
-
-    ctx.fillStyle = "#fff";
-    ctx.textAlign = "center";
-    ctx.font = "28px sans-serif";
-    ctx.fillText("TIME UP", canvas.width/2, 290);
-    ctx.font = "22px sans-serif";
-    ctx.fillText("Score: " + score, canvas.width/2, 330);
-}
-
-// ====================
-// 操作
-// ====================
-canvas.addEventListener("touchmove", e => {
-    const rect = canvas.getBoundingClientRect();
-    basket.x = e.touches[0].clientX - rect.left - basket.width/2;
-});
-
-document.addEventListener("mousemove", e => {
-    basket.x = e.clientX - basket.width/2;
-});
-
-// ====================
-// ループ
-// ====================
-function loop() {
-    if (scene === "title") drawTitle();
-    if (scene === "game") updateGame();
-    if (scene === "result") drawResult();
-    requestAnimationFrame(loop);
-}
-loop();
-
-// ====================
-// ボタン
-// ====================
-const startBtn = document.getElementById("startBtn");
-const restartBtn = document.getElementById("restartBtn");
-
-startBtn.onclick = () => {
-    scene = "game";
-    score = 0;
-    time = 30;
-    items = [];
-    startBtn.style.display = "none";
-
-    // タイマー
+/* ---------- タイマー ---------- */
+function startTimer(){
     const timer = setInterval(()=>{
-        if (scene !== "game") return;
-        time--;
-        if (time <= 0) {
-            scene = "result";
-            restartBtn.style.display = "block";
+        if(!gameRunning){
             clearInterval(timer);
-
-            // ★★★ 広告を入れるならここ ★★★
-            // showInterstitialAd();
+            return;
+        }
+        timeLeft--;
+        if(timeLeft<=0){
+            gameRunning=false;
+            alert("TIME UP\nScore: "+score);
+            location.reload();
         }
     },1000);
+}
+
+/* ---------- 操作 ---------- */
+canvas.addEventListener("touchmove",e=>{
+    const rect=canvas.getBoundingClientRect();
+    basket.x=e.touches[0].clientX-rect.left-basket.width/2;
+});
+
+/* ---------- START ---------- */
+document.getElementById("startBtn").onclick=()=>{
+    overlay.style.display="none";
+    gameRunning=true;
+    startTimer();
+    updateGame();
 };
 
-restartBtn.onclick = () => {
-    scene = "title";
-    restartBtn.style.display = "none";
-    startBtn.style.display = "block";
-};
+/* 初期表示 */
+drawTitleBackground();
 </script>
 
 </body>
